@@ -13,6 +13,7 @@ from urllib.parse import urlparse, parse_qs
 from liveweb_arena.plugins.base import BasePlugin
 from .api_client import (
     fetch_homepage_api_data,
+    fetch_newest_api_data,
     fetch_category_api_data,
     fetch_item_api_data,
     fetch_user_api_data,
@@ -318,8 +319,14 @@ class HackerNewsPlugin(BasePlugin):
             self._extract_external_urls(data)
             return data
 
-        # Homepage (including news, newest, front, etc. - all show top stories)
-        if path in ("", "news", "newest", "front") or not path:
+        # Newest page
+        if path == "newest":
+            data = await fetch_newest_api_data()
+            self._extract_external_urls(data)
+            return data
+
+        # Homepage (top stories)
+        if path in ("", "news", "front") or not path:
             data = await fetch_homepage_api_data()
             self._extract_external_urls(data)
             return data
@@ -359,7 +366,7 @@ class HackerNewsPlugin(BasePlugin):
         if path in ("ask", "show", "jobs"):
             return True
 
-        # Homepage needs API data
+        # Newest/homepage need API data
         if path in ("", "news", "newest", "front") or not path:
             return True
 

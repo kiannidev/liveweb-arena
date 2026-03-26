@@ -84,6 +84,14 @@ class HackerNewsClient(BaseAPIClient):
         return []
 
     @classmethod
+    async def get_new_stories(cls, limit: int = 30) -> List[int]:
+        """Get newest story IDs."""
+        data = await cls.get("/newstories.json")
+        if data and isinstance(data, list):
+            return data[:limit]
+        return []
+
+    @classmethod
     async def get_ask_stories(cls, limit: int = 30) -> List[int]:
         """Get Ask HN story IDs."""
         data = await cls.get("/askstories.json")
@@ -202,6 +210,36 @@ async def fetch_homepage_api_data(limit: int = 30) -> Dict[str, Any]:
             stories[str(story_id)] = story
 
     return {"stories": stories}
+
+
+async def fetch_newest_api_data(limit: int = 30) -> Dict[str, Any]:
+    """
+    Fetch API data for HN newest page.
+
+    Returns:
+        {
+            "category": "newest",
+            "stories": {
+                "<id>": {
+                    ...
+                    "rank": <1-based newest rank>
+                }
+            }
+        }
+    """
+    story_ids = await HackerNewsClient.get_new_stories(limit=limit)
+    if not story_ids:
+        raise APIFetchError("Failed to fetch newest stories", source="hackernews")
+
+    items = await HackerNewsClient.get_items_batch(story_ids)
+    stories = {}
+    for rank, story_id in enumerate(story_ids, start=1):
+        if story_id in items:
+            story = items[story_id]
+            story["rank"] = rank
+            stories[str(story_id)] = story
+
+    return {"category": "newest", "stories": stories}
 
 
 async def fetch_category_api_data(category: str, limit: int = 30) -> Dict[str, Any]:
