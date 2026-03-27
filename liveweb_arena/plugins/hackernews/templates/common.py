@@ -1,6 +1,6 @@
 """Shared utilities for advanced Hacker News templates."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from liveweb_arena.core.ground_truth_trigger import GroundTruthResult
 from liveweb_arena.core.gt_collector import get_current_gt_collector
@@ -95,3 +95,70 @@ def parse_iso_minutes(timestamp: Any) -> Optional[int]:
     if hour < 0 or hour > 23 or minute < 0 or minute > 59:
         return None
     return hour * 60 + minute
+
+
+def get_item_data(
+    collected: Dict[str, Dict[str, Any]],
+    item_id: int,
+) -> Tuple[Optional[Dict[str, Any]], Optional[GroundTruthResult]]:
+    """Get generic item payload by id (story or comment)."""
+    key = str(item_id)
+    payload = collected.get(key)
+    if not isinstance(payload, dict):
+        return None, GroundTruthResult.not_collected(
+            f"Item {item_id} not collected. Visit /item?id={item_id}."
+        )
+    return payload, None
+
+
+def count_descendants_with_min_depth(
+    collected: Dict[str, Dict[str, Any]],
+    root_comment_ids: List[int],
+    min_depth: int,
+) -> Tuple[Optional[int], Optional[GroundTruthResult]]:
+    """
+    Count unique descendants at or below a minimum depth from root comments.
+
+    Depth convention:
+    - root comments have depth=1
+    - direct replies to root have depth=2
+    """
+    if min_depth < 1:
+        return None, GroundTruthResult.fail("min_depth must be >= 1")
+
+    visited: Set[int] = set()
+
+    def _dfs(comment_id: int, depth: int) -> Tuple[int, Optional[GroundTruthResult]]:
+        if comment_id in visited:
+            return 0, None
+        visited.add(comment_id)
+
+        item, failure = get_item_data(collected, comment_id)
+        if failure is not None:
+            return 0, failure
+
+        subtotal = 1 if depth >= min_depth else 0
+        kids = item.get("kids", [])
+        if kids is None:
+            return subtotal, None
+        if not isinstance(kids, list):
+            return 0, GroundTruthResult.fail(f"Malformed kids for comment {comment_id}")
+
+        for kid in kids:
+            if not isinstance(kid, int):
+                return 0, GroundTruthResult.fail(f"Malformed child id for comment {comment_id}")
+            nested_count, failure = _dfs(kid, depth + 1)
+            if failure is not None:
+                return 0, failure
+            subtotal += nested_count
+        return subtotal, None
+
+    total = 0
+    for root_id in root_comment_ids:
+        if not isinstance(root_id, int):
+            return None, GroundTruthResult.fail("Malformed root comment ids")
+        count, failure = _dfs(root_id, depth=1)
+        if failure is not None:
+            return None, failure
+        total += count
+    return total, None

@@ -369,6 +369,14 @@ class GTCollector:
                 name = api_data.get("name", f"SN{netuid}")
                 return f"subnet[{name}]"
 
+        elif "hn.algolia.com" in url_lower:
+            # HN Algolia search data
+            query = str(api_data.get("query", "")).strip().lower()
+            page = int(api_data.get("page", 0))
+            key = f"hn_search:{query}:{page}"
+            self._collected_api_data[key] = api_data
+            return f"hn_search[{query}] page={page}"
+
         elif "news.ycombinator.com" in url_lower:
             if "stories" in api_data:
                 # Check if this is a category page (ask, show, jobs) or homepage
@@ -391,8 +399,8 @@ class GTCollector:
                     if added > 0:
                         return f"+{added} stories"
                     return None
-            elif "id" in api_data and "title" in api_data:
-                # Story detail page: merge with existing data, preserving rank
+            elif "id" in api_data:
+                # Item detail page (story/comment): merge with existing data, preserving rank
                 story_id = str(api_data["id"])
                 existing = self._collected_api_data.get(story_id, {})
                 # Copy to avoid mutating cached/shared api_data reference

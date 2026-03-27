@@ -14,12 +14,13 @@ from liveweb_arena.core.validators.base import (
 
 from .common import get_category_stories, get_collected_hn_data, get_user_data
 
-RANK_PAIR_CHOICES = [(1, 2), (1, 3), (2, 4), (3, 5)]
+RANK_CHOICES = list(range(1, 31))
+METRIC_CHOICES = ["karma", "created_days", "submitted_count"]
 
 PATTERNS = [
-    "On HN newest, compare author karma for story ranks #{rank_a} and #{rank_b}. Return signed difference (rank {rank_a} author karma minus rank {rank_b} author karma).",
-    "Using Hacker News newest, visit user profiles for authors at ranks {rank_a} and {rank_b}. What is karma(rank {rank_a}) - karma(rank {rank_b})?",
-    "From newest HN stories, compute the karma gap between authors at ranks {rank_a} and {rank_b} (first minus second).",
+    "On HN newest, compare authors at ranks #{rank_a} and #{rank_b}. Return signed difference for metric '{metric}' (rank {rank_a} minus rank {rank_b}).",
+    "Using Hacker News newest, visit user profiles for ranks {rank_a} and {rank_b}. What is {metric}(rank {rank_a}) - {metric}(rank {rank_b})?",
+    "From newest HN stories, compute {metric} gap between authors at ranks {rank_a} and {rank_b} (first minus second).",
 ]
 
 
@@ -34,13 +35,14 @@ class HackerNewsUserKarmaGapTemplate(QuestionTemplate):
 
     def generate(self, seed: int, variant: Optional[int] = None) -> GeneratedQuestion:
         rng = random.Random(seed)
-        rank_a, rank_b = rng.choice(RANK_PAIR_CHOICES)
+        rank_a, rank_b = sorted(rng.sample(RANK_CHOICES, 2))
+        metric = rng.choice(METRIC_CHOICES)
         pattern = rng.choice(PATTERNS)
         return GeneratedQuestion(
-            question_text=pattern.format(rank_a=rank_a, rank_b=rank_b),
+            question_text=pattern.format(rank_a=rank_a, rank_b=rank_b, metric=metric),
             start_url="https://news.ycombinator.com/newest",
-            variables={"rank_a": rank_a, "rank_b": rank_b},
-            validation_info={"rank_a": rank_a, "rank_b": rank_b, "category_slug": "newest"},
+            variables={"rank_a": rank_a, "rank_b": rank_b, "metric": metric},
+            validation_info={"rank_a": rank_a, "rank_b": rank_b, "metric": metric, "category_slug": "newest"},
             template_name=self.name,
             expected_steps=10,
         )
@@ -49,7 +51,7 @@ class HackerNewsUserKarmaGapTemplate(QuestionTemplate):
         return (
             "Task-Specific Rules (HN User Karma Gap):\n"
             f"- Compare newest ranks {validation_info.get('rank_a')} and {validation_info.get('rank_b')}\n"
-            "- Metric: author karma from /user profile pages\n"
+            f"- Metric: {validation_info.get('metric')} from /user profile pages\n"
             "- Score 1.0: exact signed difference\n"
             "- Score 0.5: absolute error <= 50 karma\n"
             "- Score 0.0: otherwise"
@@ -82,12 +84,29 @@ class HackerNewsUserKarmaGapTemplate(QuestionTemplate):
         if failure is not None:
             return failure
 
-        karma_a = data_a.get("karma")
-        karma_b = data_b.get("karma")
-        if not isinstance(karma_a, int) or not isinstance(karma_b, int):
-            return GroundTruthResult.fail("User karma missing in collected profile data")
+        metric = str(validation_info.get("metric", "karma"))
+        if metric == "karma":
+            value_a = data_a.get("karma")
+            value_b = data_b.get("karma")
+            if not isinstance(value_a, int) or not isinstance(value_b, int):
+                return GroundTruthResult.fail("User karma missing in collected profile data")
+            return GroundTruthResult.ok(str(value_a - value_b))
 
-        return GroundTruthResult.ok(str(karma_a - karma_b))
+        if metric == "created_days":
+            value_a = data_a.get("created")
+            value_b = data_b.get("created")
+            if not isinstance(value_a, int) or not isinstance(value_b, int):
+                return GroundTruthResult.fail("User created timestamp missing in collected profile data")
+            return GroundTruthResult.ok(str((value_a - value_b) // 86400))
+
+        if metric == "submitted_count":
+            submitted_a = data_a.get("submitted")
+            submitted_b = data_b.get("submitted")
+            if not isinstance(submitted_a, list) or not isinstance(submitted_b, list):
+                return GroundTruthResult.fail("User submitted list missing in collected profile data")
+            return GroundTruthResult.ok(str(len(submitted_a) - len(submitted_b)))
+
+        return GroundTruthResult.fail(f"Unsupported metric '{metric}'")
 
     async def validate_answer(self, answer: str, validation_info: Dict[str, Any]) -> ValidationResult:
         return ValidationResult(score=0.0, is_correct=False, expected=None, actual=answer, details="Use LLM validation")

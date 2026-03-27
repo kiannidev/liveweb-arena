@@ -17,6 +17,7 @@ from .api_client import (
     fetch_category_api_data,
     fetch_item_api_data,
     fetch_user_api_data,
+    fetch_search_api_data,
 )
 
 # Per-evaluation state via contextvars.
@@ -54,6 +55,7 @@ class HackerNewsPlugin(BasePlugin):
 
     allowed_domains = [
         "news.ycombinator.com",
+        "hn.algolia.com",
     ]
 
     @classmethod
@@ -78,7 +80,7 @@ class HackerNewsPlugin(BasePlugin):
         """Block direct API access to force agents to use the website."""
         return [
             "*hacker-news.firebaseio.com*",  # Block Firebase API
-            "*hn.algolia.com*",               # Block Algolia search API
+            "*hn.algolia.com/api/*",          # Block direct Algolia API calls
         ]
 
     @classmethod
@@ -288,6 +290,13 @@ class HackerNewsPlugin(BasePlugin):
         parsed = urlparse(url)
         host = parsed.netloc.lower()
 
+        # Algolia search page
+        if "hn.algolia.com" in host:
+            query = parse_qs(parsed.query)
+            search_q = query.get("q", [""])[0].strip()
+            page = int(query.get("page", ["0"])[0] or 0)
+            return await fetch_search_api_data(search_q, page=page, hits_per_page=30)
+
         # Check if this is an external URL (not HN domain)
         if "ycombinator.com" not in host:
             return self._get_external_url_data(url)
@@ -347,6 +356,10 @@ class HackerNewsPlugin(BasePlugin):
         parsed = urlparse(url)
         host = parsed.netloc.lower()
 
+        # Algolia search pages need API data
+        if "hn.algolia.com" in host:
+            return True
+
         # External URLs (non-HN) need data extraction for GT
         if "ycombinator.com" not in host:
             return self.is_legitimate_external_url(url)
@@ -388,8 +401,8 @@ class HackerNewsPlugin(BasePlugin):
         parsed = urlparse(url)
         host = parsed.netloc.lower()
 
-        # Always allow HN domain
-        if "ycombinator.com" in host:
+        # Always allow HN and Algolia search domains
+        if "ycombinator.com" in host or "hn.algolia.com" in host:
             return True
 
         # Allow legitimate external URLs from HN stories

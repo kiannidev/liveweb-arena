@@ -5,6 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+from urllib.parse import quote_plus
 
 from liveweb_arena.plugins.base_client import APIFetchError, BaseAPIClient, RateLimiter, validate_api_response
 
@@ -14,6 +15,7 @@ CACHE_SOURCE = "hackernews"
 
 # Firebase API base URL
 HN_API_BASE = "https://hacker-news.firebaseio.com/v0"
+HN_ALGOLIA_SEARCH_API = "https://hn.algolia.com/api/v1/search_by_date"
 
 
 class HackerNewsClient(BaseAPIClient):
@@ -327,4 +329,48 @@ async def fetch_user_api_data(username: str) -> Dict[str, Any]:
     return {
         "user": user,
         "submissions": user.get("submitted", [])[:30],  # Limit to recent submissions
+    }
+
+
+async def fetch_search_api_data(query: str, page: int = 0, hits_per_page: int = 30) -> Dict[str, Any]:
+    """
+    Fetch search results from HN Algolia API.
+
+    Args:
+        query: Search query string
+        page: Search page number
+        hits_per_page: Number of results per page
+
+    Returns:
+        Dict with query metadata and hits list
+    """
+    await HackerNewsClient._rate_limit()
+    encoded_query = quote_plus(query)
+    url = (
+        f"{HN_ALGOLIA_SEARCH_API}?query={encoded_query}&page={page}"
+        f"&hitsPerPage={hits_per_page}&tags=story"
+    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15.0)) as response:
+                if response.status != 200:
+                    raise APIFetchError(
+                        f"Failed to fetch Algolia search data: status={response.status}",
+                        source="hackernews",
+                    )
+                payload = await response.json()
+    except APIFetchError:
+        raise
+    except Exception as e:
+        raise APIFetchError(f"Algolia search request failed: {e}", source="hackernews") from e
+
+    if not validate_api_response(payload, required_fields=["hits"], source="hackernews"):
+        raise APIFetchError("Invalid Algolia search payload", source="hackernews")
+
+    return {
+        "query": query,
+        "page": page,
+        "hits_per_page": hits_per_page,
+        "hits": payload.get("hits", []),
+        "nb_hits": payload.get("nbHits"),
     }
