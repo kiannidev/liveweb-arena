@@ -185,7 +185,11 @@ class TaskRegistry:
         [85, 86, 87, 88],
         # Version 6: ArXiv templates
         [90, 91, 92, 94, 95],
-        # Version 7: Hacker News gap-filling templates
+        # Version 7: Open Library engagement & comparison templates (PR #13)
+        [96, 97, 98],
+        # Version 8: Additional Open Meteo templates
+        [99, 100, 101],
+        # Version 9: Hacker News gap-filling templates
         [110, 111, 112, 113],
     ]
 
