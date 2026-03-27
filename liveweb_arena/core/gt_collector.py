@@ -408,6 +408,15 @@ class GTCollector:
                 if "rank" in existing and "rank" not in merged:
                     merged["rank"] = existing["rank"]
                 self._collected_api_data[story_id] = merged
+                added_comments = 0
+                comment_items = api_data.get("_comment_items")
+                if isinstance(comment_items, dict):
+                    for comment_id, comment_payload in comment_items.items():
+                        if isinstance(comment_id, str) and isinstance(comment_payload, dict):
+                            self._collected_api_data[comment_id] = comment_payload
+                            added_comments += 1
+                if added_comments > 0:
+                    return f"story[{story_id}] +{added_comments} comments"
                 return f"story[{story_id}]"
             elif "user" in api_data:
                 # User page

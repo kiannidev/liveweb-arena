@@ -302,7 +302,36 @@ async def fetch_item_api_data(item_id: int) -> Dict[str, Any]:
     item = await HackerNewsClient.get_item(item_id)
     if not item:
         raise APIFetchError(f"Item {item_id} not found", source="hackernews")
+    kids = item.get("kids")
+    if not isinstance(kids, list) or len(kids) == 0:
+        return item
 
+    # Collect a bounded nested comment subtree so nested-navigation templates
+    # can compute GT after visiting story detail without opening every comment URL.
+    comment_items: Dict[str, Dict[str, Any]] = {}
+    queue: List[int] = [cid for cid in kids if isinstance(cid, int)]
+    visited = set()
+    max_comment_nodes = 200
+
+    while queue and len(comment_items) < max_comment_nodes:
+        cid = queue.pop(0)
+        if cid in visited:
+            continue
+        visited.add(cid)
+        comment = await HackerNewsClient.get_item(cid)
+        if not isinstance(comment, dict):
+            continue
+        comment_items[str(cid)] = comment
+        child_ids = comment.get("kids")
+        if isinstance(child_ids, list):
+            for child_id in child_ids:
+                if isinstance(child_id, int) and child_id not in visited:
+                    queue.append(child_id)
+
+    if comment_items:
+        enriched = dict(item)
+        enriched["_comment_items"] = comment_items
+        return enriched
     return item
 
 

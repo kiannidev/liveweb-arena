@@ -83,5 +83,9 @@ Pass.
   - `tests/plugins/hackernews/test_gap_templates_real_api_data.py`
 - Core template behavior and variant-space assertions:
   - `tests/test_hackernews_gap_templates.py`
+- Nested collection path coverage for T111:
+  - story detail fetch now includes bounded `_comment_items` subtree payload
+  - GT collector merges `_comment_items` so nested metrics can be computed
+    after story-detail navigation without requiring each comment URL visit
 - Local command run:
   - `PYTHONPATH=. pytest -q tests/test_hackernews_gap_templates.py tests/plugins/hackernews/test_gap_templates_real_api_data.py`

@@ -177,6 +177,33 @@ def test_comment_tree_focus_success(collector):
     assert result.value == "3"
 
 
+def test_comment_tree_focus_success_with_bundled_comment_items(collector):
+    newest = _seed_newest_stories()
+    collector._merge_api_data("https://news.ycombinator.com/newest", newest)
+    collector._merge_api_data(
+        "https://news.ycombinator.com/item?id=1002",
+        {
+            "id": 1002,
+            "title": "Rust performance tricks",
+            "kids": [2001, 2002],
+            "_comment_items": {
+                "2001": {"id": 2001, "kids": [2003]},
+                "2002": {"id": 2002, "kids": [2004]},
+                "2003": {"id": 2003, "kids": []},
+                "2004": {"id": 2004, "kids": [2005]},
+                "2005": {"id": 2005, "kids": []},
+            },
+        },
+    )
+    result = run_async(
+        HackerNewsCommentTreeFocusTemplate().get_ground_truth(
+            {"rank": 2, "min_depth": 2, "metric": "nodes"}
+        )
+    )
+    assert result.success is True
+    assert result.value == "3"
+
+
 def test_comment_tree_focus_missing_item(collector):
     collector._merge_api_data("https://news.ycombinator.com/newest", _seed_newest_stories())
     result = run_async(
