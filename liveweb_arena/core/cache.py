@@ -489,6 +489,7 @@ class CacheManager:
             return None
 
         if not allow_stale and cached.is_expired(self.ttl):
+            self._delete_cache(cache_file)
             return None
 
         # Check if cache is complete

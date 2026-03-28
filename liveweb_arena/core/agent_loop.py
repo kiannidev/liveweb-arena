@@ -5,6 +5,7 @@ from typing import Any, Callable, List, Optional, Tuple
 
 from .browser import BrowserSession
 from .cache import CacheFatalError
+from .memory_patch import apply_memory_patch
 from .models import BrowserAction, CompositeTask, TrajectoryStep
 from .agent_protocol import AgentProtocol
 from ..utils.llm_client import LLMClient, LLMFatalError
@@ -59,6 +60,8 @@ class AgentLoop:
     The loop maintains trajectory state internally for partial recovery on timeout.
     """
 
+    MEMORY_MAX_PATCH_ADD_CHARS = 120
+
     def __init__(
         self,
         session: BrowserSession,
@@ -81,6 +84,7 @@ class AgentLoop:
         self._trajectory: List[TrajectoryStep] = []
         self._total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "last_call": None}
         self._final_answer = None
+        self._working_memory = ""
 
     def get_trajectory(self) -> List[TrajectoryStep]:
         """Get current trajectory (for partial recovery on timeout)"""
@@ -93,6 +97,17 @@ class AgentLoop:
     def get_final_answer(self) -> Any:
         """Get final answer if available"""
         return self._final_answer
+
+    def get_working_memory(self) -> str:
+        """Get current working memory document."""
+        return self._working_memory
+
+    def _apply_memory_patch(self, patch_text: str) -> str:
+        """Apply a simplified diff patch to the working memory document."""
+        result = apply_memory_patch(self._working_memory, patch_text, self.MEMORY_MAX_PATCH_ADD_CHARS)
+        if result.applied:
+            self._working_memory = result.document
+        return result.message
 
     async def _call_llm(
         self, system_prompt: str, user_prompt: str, model: str,
@@ -146,6 +161,7 @@ class AgentLoop:
         self._trajectory = []
         self._total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "last_call": None}
         self._final_answer = None
+        self._working_memory = ""
         self._max_steps_reached = False
         self._parse_failed = False
 
@@ -208,7 +224,11 @@ class AgentLoop:
             current_obs = obs
             step_num = effective_step - 1  # 0-indexed step number for trajectory
             user_prompt = self._protocol.build_step_prompt(
-                current_obs, self._trajectory, effective_step, self._max_steps
+                current_obs,
+                self._trajectory,
+                effective_step,
+                self._max_steps,
+                working_memory=self._working_memory,
             )
 
             try:
@@ -256,23 +276,33 @@ class AgentLoop:
                     action_result="Parse failed - model output not valid JSON",
                     prompt=user_prompt,
                     raw_response=raw_response,
+                    memory_snapshot=self.get_working_memory(),
                 )
                 self._trajectory.append(step)
                 self._parse_failed = True
                 break
 
+            memory_patch_result = None
+            memory_patch = action.params.get("memory_patch")
+
             if action.action_type == "stop":
+                if memory_patch is not None:
+                    memory_patch_result = self._apply_memory_patch(memory_patch)
                 final_params = action.params.get("final", {})
                 self._final_answer = final_params if final_params else action.params
                 log("Agent", f"Completed: {self._final_answer}")
 
+                action_result = "Task completed"
+                if memory_patch_result:
+                    action_result += f" | {memory_patch_result}"
                 step = TrajectoryStep(
                     step_num=step_num,
                     observation=current_obs,
                     action=action,
-                    action_result="Task completed",
+                    action_result=action_result,
                     prompt=user_prompt,
                     raw_response=raw_response,
+                    memory_snapshot=self.get_working_memory(),
                 )
                 self._trajectory.append(step)
 
@@ -287,9 +317,9 @@ class AgentLoop:
                 log("Agent", f"Action: {action.action_type}")
                 old_url = obs.url if obs else None
 
-                # Execute action - browser handles navigation errors internally
-                # and returns error pages as valid observations
                 try:
+                    # Execute action - browser handles navigation errors internally
+                    # and returns error pages as valid observations
                     obs = await self._session.execute_action(action)
                     action_result = "Success"
 
@@ -309,6 +339,10 @@ class AgentLoop:
                     # Non-navigation action failed
                     action_result = f"Failed: {e}"
 
+                if memory_patch is not None:
+                    memory_patch_result = self._apply_memory_patch(memory_patch)
+                    action_result = f"{action_result} | {memory_patch_result}"
+
             step = TrajectoryStep(
                 step_num=step_num,
                 observation=current_obs,
@@ -316,6 +350,7 @@ class AgentLoop:
                 action_result=action_result,
                 prompt=user_prompt,
                 raw_response=raw_response,
+                memory_snapshot=self.get_working_memory(),
             )
             self._trajectory.append(step)
 

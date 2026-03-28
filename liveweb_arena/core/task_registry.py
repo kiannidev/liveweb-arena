@@ -134,10 +134,6 @@ class TaskRegistry:
         76: ("hackernews", "hackernews_extrema_comparison"),
         77: ("hackernews", "hackernews_category_comparison"),
         78: ("hackernews", "hackernews_news_summary"),
-        110: ("hackernews", "hackernews_recent_burst_count"),
-        111: ("hackernews", "hackernews_comment_tree_focus"),
-        112: ("hackernews", "hackernews_keyword_scan_rank"),
-        113: ("hackernews", "hackernews_user_karma_gap"),
 
         # Open Library templates
         80: ("openlibrary", "openlibrary_book_stats"),
@@ -150,6 +146,12 @@ class TaskRegistry:
         86: ("openmeteo", "openmeteo_comparison"),
         87: ("openmeteo", "openmeteo_hourly_extrema"),
         88: ("openmeteo", "openmeteo_forecast_trend"),
+        96: ("openlibrary", "openlibrary_author_engagement_extrema"),
+        97: ("openlibrary", "openlibrary_author_comparison"),
+        98: ("openlibrary", "openlibrary_reading_stats_filter"),
+        99: ("openmeteo", "openmeteo_hourly_threshold"),
+        100: ("openmeteo", "openmeteo_sunrise_sunset"),
+        101: ("openmeteo", "openmeteo_hourly_time_of"),
 
         # ArXiv templates
         90: ("arxiv", "arxiv_paper_info"),
@@ -157,6 +159,10 @@ class TaskRegistry:
         92: ("arxiv", "arxiv_category_comparison"),
         94: ("arxiv", "arxiv_multi_author_filter"),
         95: ("arxiv", "arxiv_title_length_extrema"),
+        110: ("openmeteo", "openmeteo_daily_precip_peak_day"),
+        111: ("openlibrary", "openlibrary_subject_nested_work_title"),
+        112: ("arxiv", "arxiv_category_infer_title_substring"),
+        113: ("arxiv", "arxiv_category_infer_author_filter"),
     }
 
     # Template versions - each version's combinations come AFTER all previous versions
@@ -189,7 +195,7 @@ class TaskRegistry:
         [96, 97, 98],
         # Version 8: Additional Open Meteo templates
         [99, 100, 101],
-        # Version 9: Hacker News gap-filling templates
+        # Version 9: Cross-site templates (daylight calendar, subject hub, arXiv category feeds)
         [110, 111, 112, 113],
     ]
 

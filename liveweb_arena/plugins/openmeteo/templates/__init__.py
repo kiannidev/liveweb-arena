@@ -7,6 +7,7 @@ from .forecast_trend import OpenMeteoForecastTrendTemplate
 from .hourly_threshold import OpenMeteoHourlyThresholdTemplate
 from .sunrise_sunset import OpenMeteoSunriseSunsetTemplate
 from .hourly_time_of import OpenMeteoHourlyTimeOfTemplate
+from .daily_precip_peak_day import OpenMeteoDailyPrecipPeakDayTemplate
 
 __all__ = [
     "OpenMeteoCurrentWeatherTemplate",
@@ -16,4 +17,5 @@ __all__ = [
     "OpenMeteoHourlyThresholdTemplate",
     "OpenMeteoSunriseSunsetTemplate",
     "OpenMeteoHourlyTimeOfTemplate",
+    "OpenMeteoDailyPrecipPeakDayTemplate",
 ]

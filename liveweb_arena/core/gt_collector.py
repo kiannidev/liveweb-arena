@@ -369,14 +369,6 @@ class GTCollector:
                 name = api_data.get("name", f"SN{netuid}")
                 return f"subnet[{name}]"
 
-        elif "hn.algolia.com" in url_lower:
-            # HN Algolia search data
-            query = str(api_data.get("query", "")).strip().lower()
-            page = int(api_data.get("page", 0))
-            key = f"hn_search:{query}:{page}"
-            self._collected_api_data[key] = api_data
-            return f"hn_search[{query}] page={page}"
-
         elif "news.ycombinator.com" in url_lower:
             if "stories" in api_data:
                 # Check if this is a category page (ask, show, jobs) or homepage
@@ -399,8 +391,8 @@ class GTCollector:
                     if added > 0:
                         return f"+{added} stories"
                     return None
-            elif "id" in api_data:
-                # Item detail page (story/comment): merge with existing data, preserving rank
+            elif "id" in api_data and "title" in api_data:
+                # Story detail page: merge with existing data, preserving rank
                 story_id = str(api_data["id"])
                 existing = self._collected_api_data.get(story_id, {})
                 # Copy to avoid mutating cached/shared api_data reference
@@ -408,15 +400,6 @@ class GTCollector:
                 if "rank" in existing and "rank" not in merged:
                     merged["rank"] = existing["rank"]
                 self._collected_api_data[story_id] = merged
-                added_comments = 0
-                comment_items = api_data.get("_comment_items")
-                if isinstance(comment_items, dict):
-                    for comment_id, comment_payload in comment_items.items():
-                        if isinstance(comment_id, str) and isinstance(comment_payload, dict):
-                            self._collected_api_data[comment_id] = comment_payload
-                            added_comments += 1
-                if added_comments > 0:
-                    return f"story[{story_id}] +{added_comments} comments"
                 return f"story[{story_id}]"
             elif "user" in api_data:
                 # User page

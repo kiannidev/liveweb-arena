@@ -19,6 +19,7 @@ from liveweb_arena.plugins.openmeteo.templates.hourly_extrema import OpenMeteoHo
 from liveweb_arena.plugins.openmeteo.templates.hourly_threshold import OpenMeteoHourlyThresholdTemplate
 from liveweb_arena.plugins.openmeteo.templates.sunrise_sunset import OpenMeteoSunriseSunsetTemplate
 from liveweb_arena.plugins.openmeteo.templates.hourly_time_of import OpenMeteoHourlyTimeOfTemplate
+from liveweb_arena.plugins.openmeteo.templates.daily_precip_peak_day import OpenMeteoDailyPrecipPeakDayTemplate
 from liveweb_arena.plugins.openmeteo.templates.variables import CITIES
 
 
@@ -547,6 +548,47 @@ def test_gt_with_real_api_data(collector):
     )
     assert result_t101.success is True
     assert result_t101.value == "15:00"
+
+    # T110 (registry): daily max precip probability peak day — [100, 53, 63] → today
+    result_t110 = run_async(
+        OpenMeteoDailyPrecipPeakDayTemplate().get_ground_truth({
+            "city_name": "Tokyo", "coord_key": "35.68,139.65",
+        })
+    )
+    assert result_t110.success is True
+    assert result_t110.value == "today"
+
+
+def test_daily_precip_peak_day_tie_prefers_earlier_day(collector):
+    """Equal maxima → earliest day wins (index 0)."""
+    collector._merge_api_data(
+        "https://open-meteo.com/en/docs?latitude=0.0&longitude=0.0",
+        {
+            "_location_key": "0.0,0.0",
+            "current_weather": {"time": "2026-03-26T12:00", "temperature": 20.0},
+            "daily": {
+                "time": ["2026-03-26", "2026-03-27", "2026-03-28"],
+                "precipitation_probability_max": [40.0, 40.0, 10.0],
+            },
+        },
+    )
+    result = run_async(
+        OpenMeteoDailyPrecipPeakDayTemplate().get_ground_truth({
+            "city_name": "EquatorTest", "coord_key": "0.0,0.0",
+        })
+    )
+    assert result.success is True
+    assert result.value == "today"
+
+
+def test_daily_precip_peak_requires_city_visit():
+    result = run_async(
+        OpenMeteoDailyPrecipPeakDayTemplate().get_ground_truth({
+            "city_name": "Tokyo", "coord_key": "35.68,139.65",
+        })
+    )
+    assert result.success is False
+    assert result.is_data_not_collected()
 
 
 def test_build_data_html_includes_sunrise_sunset():

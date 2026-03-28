@@ -225,3 +225,16 @@ def find_author_search_entry(
             matched_unsorted = entry
 
     return matched_exact if matched_exact is not None else matched_unsorted
+
+
+def find_subject_payload(collected: Dict[str, Any], slug: str) -> Optional[Dict[str, Any]]:
+    """Return the Open Library subject listing payload for ``slug`` if collected."""
+    for entry in collected.values():
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("subject") != slug:
+            continue
+        works = entry.get("works")
+        if isinstance(works, dict) and works:
+            return entry
+    return None

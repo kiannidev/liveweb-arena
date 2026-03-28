@@ -13,6 +13,8 @@ from .subject_multi_condition import OpenLibrarySubjectMultiConditionTemplate
 from .author_engagement_extrema import OpenLibraryAuthorEngagementExtremaTemplate
 from .author_comparison import OpenLibraryAuthorComparisonTemplate
 from .reading_stats_filter import OpenLibraryReadingStatsFilterTemplate
+from .subject_hub_infer import OpenLibrarySubjectHubInferTemplate
+from .nested_work_title_substring import OpenLibrarySubjectNestedWorkTitleTemplate
 
 __all__ = [
     "OpenLibraryBookStatsTemplate",
@@ -22,4 +24,6 @@ __all__ = [
     "OpenLibraryAuthorEngagementExtremaTemplate",
     "OpenLibraryAuthorComparisonTemplate",
     "OpenLibraryReadingStatsFilterTemplate",
+    "OpenLibrarySubjectHubInferTemplate",
+    "OpenLibrarySubjectNestedWorkTitleTemplate",
 ]
