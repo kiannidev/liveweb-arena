@@ -134,6 +134,8 @@ class TaskRegistry:
         76: ("hackernews", "hackernews_extrema_comparison"),
         77: ("hackernews", "hackernews_category_comparison"),
         78: ("hackernews", "hackernews_news_summary"),
+        110: ("hackernews", "hackernews_derived_metric"),
+        111: ("hackernews", "hackernews_weighted_rank"),
 
         # Open Library templates
         80: ("openlibrary", "openlibrary_book_stats"),
